@@ -1,0 +1,48 @@
+# Maven build directory
+target/
+!mvnw
+!mvnw.cmd
+
+# Logs
+*.log
+
+# Spring Boot
+*.pid
+*.seed
+*.pid.lock
+
+# Java
+*.class
+
+# Package files
+*.jar
+*.war
+*.ear
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Eclipse
+.project
+.classpath
+.settings/
+.springBeans
+.sts4-cache/
+
+# VS Code
+.vscode/
+
+# Mac
+.DS_Store
+
+# Environment files
+.env
+
+# Node (if frontend later added)
+node_modules/
+
+# Temporary files
+*.tmp
+*.swp
