@@ -1,5 +1,6 @@
 package com.aman.chatbot.service;
 
+import com.aman.chatbot.dto.AuthResponse;
 import com.aman.chatbot.dto.LoginRequest;
 import com.aman.chatbot.dto.RegisterRequest;
 import com.aman.chatbot.entity.User;
@@ -17,7 +18,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
 
-    public String register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request) {
 
         User user = User.builder()
                 .username(request.getUsername())
@@ -27,10 +28,12 @@ public class AuthService {
 
         userRepository.save(user);
 
-        return jwtUtil.generateToken(user.getUsername());
+        String token = jwtUtil.generateToken(user.getUsername());
+
+        return new AuthResponse(token);
     }
 
-    public String login(LoginRequest request) {
+    public AuthResponse login(LoginRequest request) {
 
         User user = userRepository.findByUsername(request.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -39,6 +42,8 @@ public class AuthService {
             throw new RuntimeException("Invalid credentials");
         }
 
-        return jwtUtil.generateToken(user.getUsername());
+        String token = jwtUtil.generateToken(user.getUsername());
+
+        return new AuthResponse(token);
     }
 }
