@@ -22,7 +22,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
         response.getWriter().write("""
         {
-          "error": "Unauthorized"
+          "error": "Authentication required",
+          "message": "Token missing or invalid"
         }
         """);
     }
