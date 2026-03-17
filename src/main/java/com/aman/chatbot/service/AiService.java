@@ -7,7 +7,7 @@ public class AiService {
 
     public String generateResponse(String userMessage) {
 
-        // 🔥 For now simple stub
+        // For now simple stub
         return "Echo: " + userMessage;
 
         // Later: AI integration

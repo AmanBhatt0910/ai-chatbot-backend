@@ -7,14 +7,12 @@ import com.aman.chatbot.entity.User;
 import com.aman.chatbot.repository.ConversationRepository;
 import com.aman.chatbot.service.AiService;
 import com.aman.chatbot.service.MessageService;
-import com.aman.chatbot.util.AuthUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.stereotype.Controller;
 
-import java.security.Principal;
 import java.time.LocalDateTime;
 
 @Controller
@@ -27,9 +25,18 @@ public class ChatController {
     private final ConversationRepository conversationRepository;
 
     @MessageMapping("/chat")
-    public void handleChat(ChatMessage chatMessage, Principal principal) {
+    public void handleChat(
+            ChatMessage chatMessage,
+            java.security.Principal principal
+    ) {
 
-        // 🔐 Extract user from WebSocket principal
+        // ✅ ALWAYS use Principal (Spring injects it correctly)
+        if (principal == null) {
+            throw new RuntimeException("Unauthorized: No WebSocket user");
+        }
+
+        System.out.println("Principal: " + principal);
+
         UsernamePasswordAuthenticationToken auth =
                 (UsernamePasswordAuthenticationToken) principal;
 
@@ -38,7 +45,7 @@ public class ChatController {
 
         Conversation conversation;
 
-        // ✅ AUTO-CREATE CONVERSATION
+        // ✅ AUTO CREATE CONVERSATION
         if (chatMessage.getConversationId() == null) {
 
             conversation = Conversation.builder()
@@ -48,49 +55,43 @@ public class ChatController {
                     .build();
 
             conversation = conversationRepository.save(conversation);
-
             chatMessage.setConversationId(conversation.getId());
 
         } else {
 
             conversation = conversationRepository
                     .findById(chatMessage.getConversationId())
-                    .orElseThrow();
+                    .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
             if (!conversation.getUserId().equals(userId)) {
                 throw new RuntimeException("Unauthorized");
             }
         }
 
-        // FORCE senderId (backend-controlled)
+        // ✅ USER MESSAGE
         chatMessage.setSenderId(userId);
         chatMessage.setType("USER");
 
-        // 1. Save USER message
         Message savedUserMessage = messageService.saveMessage(chatMessage);
 
-        // 2. Broadcast USER message
         messagingTemplate.convertAndSend(
                 "/topic/conversations/" + chatMessage.getConversationId(),
                 savedUserMessage
         );
 
-        // 3. Generate AI response
+        // ✅ AI RESPONSE
         String aiResponse = aiService.generateResponse(chatMessage.getContent());
 
-        // 4. Create AI message
         ChatMessage aiMessage = ChatMessage.builder()
-                .senderId(0L) // AI
+                .senderId(0L)
                 .conversationId(chatMessage.getConversationId())
                 .content(aiResponse)
                 .type("AI")
                 .timestamp(LocalDateTime.now())
                 .build();
 
-        // 5. Save AI message
         Message savedAiMessage = messageService.saveMessage(aiMessage);
 
-        // 6. Broadcast AI message
         messagingTemplate.convertAndSend(
                 "/topic/conversations/" + chatMessage.getConversationId(),
                 savedAiMessage

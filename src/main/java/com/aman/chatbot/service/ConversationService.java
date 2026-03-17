@@ -15,8 +15,6 @@ import java.util.List;
 public class ConversationService {
 
     private final ConversationRepository conversationRepository;
-    private final ConversationService conversationService;
-    private final AuthUtil authUtil;
     private final MessageRepository messageRepository;
 
     public Conversation createConversation(Long userId) {
