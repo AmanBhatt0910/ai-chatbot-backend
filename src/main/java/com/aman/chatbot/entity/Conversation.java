@@ -19,4 +19,8 @@ public class Conversation {
     private Long id;
 
     private LocalDateTime createdAt;
+
+    private String title;
+
+    private Long userId;
 }
