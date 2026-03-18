@@ -4,6 +4,7 @@ import com.aman.chatbot.entity.Conversation;
 import com.aman.chatbot.repository.ConversationRepository;
 import com.aman.chatbot.repository.MessageRepository;
 import com.aman.chatbot.util.AuthUtil;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -31,20 +32,26 @@ public class ConversationService {
         return conversationRepository.findByUserIdOrderByCreatedAtDesc(userId);
     }
 
+    @Transactional
     public void deleteConversation(Long conversationId, Long userId) {
 
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
-        // 🔐 SECURITY CHECK
         if (!conversation.getUserId().equals(userId)) {
             throw new RuntimeException("Unauthorized");
         }
 
-        // 🧹 DELETE MESSAGES FIRST
         messageRepository.deleteByConversationId(conversationId);
 
-        // 🗑 DELETE CONVERSATION
         conversationRepository.delete(conversation);
+    }
+
+    public void setCategory(Long conversationId, String category) {
+        Conversation convo = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new RuntimeException("Conversation not found"));
+
+        convo.setCategory(category);
+        conversationRepository.save(convo);
     }
 }

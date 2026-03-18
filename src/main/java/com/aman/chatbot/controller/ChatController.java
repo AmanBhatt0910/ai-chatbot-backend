@@ -14,6 +14,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -30,12 +31,9 @@ public class ChatController {
             java.security.Principal principal
     ) {
 
-        // ✅ ALWAYS use Principal (Spring injects it correctly)
         if (principal == null) {
             throw new RuntimeException("Unauthorized: No WebSocket user");
         }
-
-        System.out.println("Principal: " + principal);
 
         UsernamePasswordAuthenticationToken auth =
                 (UsernamePasswordAuthenticationToken) principal;
@@ -45,13 +43,13 @@ public class ChatController {
 
         Conversation conversation;
 
-        // ✅ AUTO CREATE CONVERSATION
         if (chatMessage.getConversationId() == null) {
 
             conversation = Conversation.builder()
                     .createdAt(LocalDateTime.now())
                     .title("New Chat")
                     .userId(userId)
+                    .category(null)
                     .build();
 
             conversation = conversationRepository.save(conversation);
@@ -68,7 +66,41 @@ public class ChatController {
             }
         }
 
-        // ✅ USER MESSAGE
+        if (conversation.getCategory() == null || conversation.getCategory().isBlank()) {
+
+            String selectedCategory = chatMessage.getContent().trim();
+
+            // Optional validation
+            List<String> allowed = List.of("Fitness", "Tech", "Finance");
+
+            if (!allowed.contains(selectedCategory)) {
+                messagingTemplate.convertAndSend(
+                        "/topic/conversations/" + conversation.getId(),
+                        Message.builder()
+                                .content("Invalid category. Choose: Fitness, Tech, Finance")
+                                .type("SYSTEM")
+                                .timestamp(LocalDateTime.now())
+                                .build()
+                );
+                return;
+            }
+
+            // Save category
+            conversation.setCategory(selectedCategory);
+            conversationRepository.save(conversation);
+
+            messagingTemplate.convertAndSend(
+                    "/topic/conversations/" + conversation.getId(),
+                    Message.builder()
+                            .content("Category set to: " + selectedCategory + ". You can now ask questions.")
+                            .type("SYSTEM")
+                            .timestamp(LocalDateTime.now())
+                            .build()
+            );
+
+            return;
+        }
+
         chatMessage.setSenderId(userId);
         chatMessage.setType("USER");
 
@@ -79,8 +111,9 @@ public class ChatController {
                 savedUserMessage
         );
 
-        // ✅ AI RESPONSE
-        String aiResponse = aiService.generateResponse(chatMessage.getContent());
+        String aiResponse = aiService.generateResponse(
+                chatMessage.getConversationId()
+        );
 
         ChatMessage aiMessage = ChatMessage.builder()
                 .senderId(0L)

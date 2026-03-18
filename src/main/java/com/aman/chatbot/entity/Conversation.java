@@ -23,4 +23,7 @@ public class Conversation {
     private String title;
 
     private Long userId;
+
+    @Column(name = "category")
+    private String category;
 }

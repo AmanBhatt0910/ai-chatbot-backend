@@ -7,6 +7,7 @@ import com.aman.chatbot.service.ConversationService;
 import com.aman.chatbot.service.MessageService;
 import com.aman.chatbot.util.AuthUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -55,5 +56,14 @@ public class ConversationController {
         conversationService.deleteConversation(id, userId);
 
         return "Conversation deleted successfully";
+    }
+
+    @PostMapping("/{id}/category")
+    public ResponseEntity<?> setCategory(
+            @PathVariable Long id,
+            @RequestParam String category
+    ) {
+        conversationService.setCategory(id, category);
+        return ResponseEntity.ok("Category set to " + category);
     }
 }
