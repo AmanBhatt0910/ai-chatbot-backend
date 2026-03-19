@@ -30,8 +30,12 @@ public class AiService {
     @Value("${openai.model}")
     private String model;
 
+    // Use the FULL endpoint URL as baseUrl — do NOT add .uri() on top of it
     private final WebClient webClient = WebClient.builder()
             .baseUrl("https://openrouter.ai/api/v1/chat/completions")
+            .defaultHeader("Content-Type", "application/json")
+            .defaultHeader("HTTP-Referer", "http://localhost:5173")
+            .defaultHeader("X-Title", "AI Chatbot")
             .build();
 
     private final Semaphore rateLimiter = new Semaphore(2);
@@ -46,23 +50,22 @@ public class AiService {
 
             Thread.sleep(300);
 
-            // ✅ STEP 1: Get conversation + category
+            // ── 1. Get conversation + category ──────────────────────────────
             Conversation convo = conversationRepository.findById(conversationId)
                     .orElseThrow(() -> new RuntimeException("Conversation not found"));
 
             String category = convo.getCategory();
 
             if (category == null || category.isBlank()) {
-                return "⚠️ Please select a category first (e.g., Fitness, Tech, Finance)";
+                return "⚠️ Please select a category first (Fitness, Tech, or Finance).";
             }
 
-            // ✅ STEP 2: Fetch messages
+            // ── 2. Fetch recent message history ─────────────────────────────
             List<Message> history =
                     messageRepository.findTop10ByConversationIdOrderByTimestampDesc(conversationId);
-
             Collections.reverse(history);
 
-            // ✅ STEP 3: Build messages
+            // ── 3. Build messages array ──────────────────────────────────────
             List<Map<String, Object>> messages = new ArrayList<>();
 
             messages.add(Map.of(
@@ -71,16 +74,13 @@ public class AiService {
             ));
 
             for (Message msg : history) {
-                messages.add(Map.of(
-                        "role", msg.getType().equals("USER") ? "user" : "assistant",
-                        "content", msg.getContent()
-                ));
+                String role = "USER".equals(msg.getType()) ? "user" : "assistant";
+                messages.add(Map.of("role", role, "content", msg.getContent()));
             }
 
-            // ✅ STEP 4: Call AI
+            // ── 4. Call OpenRouter ───────────────────────────────────────────
             Map<String, Object> response = webClient.post()
                     .header("Authorization", "Bearer " + apiKey)
-                    .header("Content-Type", "application/json")
                     .bodyValue(Map.of(
                             "model", model,
                             "messages", messages,
@@ -95,29 +95,28 @@ public class AiService {
                                     .filter(this::isRetryableError)
                     )
                     .onErrorResume(ex -> {
-                        ex.printStackTrace();
+                        System.err.println("OpenRouter error: " + ex.getMessage());
                         return Mono.error(ex);
                     })
                     .blockOptional()
                     .orElse(null);
 
-            // ✅ STEP 5: Parse response
+            // ── 5. Parse response ────────────────────────────────────────────
             if (response == null || !response.containsKey("choices")) {
-                System.err.println("FULL RESPONSE: " + response);
-                return "⚠️ AI is busy right now. Please try again.";
+                System.err.println("Unexpected OpenRouter response: " + response);
+                return "⚠️ AI is unavailable right now. Please try again.";
             }
 
             List<?> choices = (List<?>) response.get("choices");
-
-            if (choices.isEmpty()) {
+            if (choices == null || choices.isEmpty()) {
                 return "⚠️ No response from AI.";
             }
 
             Map<?, ?> firstChoice = (Map<?, ?>) choices.get(0);
-            Map<?, ?> messageObj = (Map<?, ?>) firstChoice.get("message");
+            Map<?, ?> messageObj  = (Map<?, ?>) firstChoice.get("message");
 
             if (messageObj == null || messageObj.get("content") == null) {
-                return "⚠️ Empty AI response.";
+                return "⚠️ AI returned an empty response.";
             }
 
             return messageObj.get("content").toString();
@@ -127,13 +126,12 @@ public class AiService {
             return "Request interrupted. Please try again.";
 
         } catch (Exception e) {
+            System.err.println("AiService error: " + e.getMessage());
             e.printStackTrace();
             return "Something went wrong. Please try again.";
 
         } finally {
-            if (permitAcquired) {
-                rateLimiter.release();
-            }
+            if (permitAcquired) rateLimiter.release();
         }
     }
 
@@ -144,7 +142,6 @@ public class AiService {
                 ex instanceof WebClientResponseException.GatewayTimeout;
     }
 
-    // 🔥 STRONG CATEGORY CONTROL (AI handles restriction)
     private String buildSystemPrompt(String category) {
         return """
                 You are an AI assistant strictly limited to the category: %s.

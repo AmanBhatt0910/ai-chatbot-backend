@@ -10,6 +10,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.*;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @RequiredArgsConstructor
@@ -22,7 +23,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(cors -> {}) // enables CorsFilter
+                .cors(cors -> {}) // uses CorsConfig bean
                 .csrf(csrf -> csrf.disable())
 
                 .exceptionHandling(ex -> ex
@@ -33,7 +34,13 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
                 .authorizeHttpRequests(auth -> auth
+                        // Allow CORS preflight requests for all endpoints
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Public auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        // WebSocket handshake endpoint (SockJS needs these)
+                        .requestMatchers("/ws/**").permitAll()
+                        // Everything else requires auth
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
@@ -45,7 +52,7 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager (
+    public AuthenticationManager authenticationManager(
             AuthenticationConfiguration config
     ) throws Exception {
         return config.getAuthenticationManager();
