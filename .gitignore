@@ -46,3 +46,5 @@ node_modules/
 # Temporary files
 *.tmp
 *.swp
+
+application.properties
