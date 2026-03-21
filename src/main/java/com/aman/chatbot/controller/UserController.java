@@ -1,5 +1,6 @@
 package com.aman.chatbot.controller;
 
+import com.aman.chatbot.dto.UserResponse;
 import com.aman.chatbot.entity.User;
 import com.aman.chatbot.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +15,13 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/me")
-    public User getProfile(Authentication authentication) {
+    public UserResponse getProfile(Authentication authentication) {
         String username = authentication.getName();
-        return userService.getUserByUsername(username);
+        User user = userService.getUserByUsername(username);
+        return UserResponse.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .email(user.getEmail())
+                .build();
     }
 }
