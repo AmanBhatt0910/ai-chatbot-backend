@@ -14,7 +14,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.stereotype.Controller;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 @Controller
 @RequiredArgsConstructor
@@ -66,18 +65,16 @@ public class ChatController {
             }
         }
 
+        // ── Category not set yet: treat the first message as the category ──
         if (conversation.getCategory() == null || conversation.getCategory().isBlank()) {
 
             String selectedCategory = chatMessage.getContent().trim();
 
-            // Optional validation
-            List<String> allowed = List.of("Fitness", "Tech", "Finance");
-
-            if (!allowed.contains(selectedCategory)) {
+            if (selectedCategory.isEmpty()) {
                 messagingTemplate.convertAndSend(
                         "/topic/conversations/" + conversation.getId(),
                         Message.builder()
-                                .content("Invalid category. Choose: Fitness, Tech, Finance")
+                                .content("Please enter a category to get started. You can type anything — e.g. \"Cooking\", \"History\", \"Gaming\".")
                                 .type("SYSTEM")
                                 .timestamp(LocalDateTime.now())
                                 .build()
@@ -85,8 +82,9 @@ public class ChatController {
                 return;
             }
 
-            // Save category
+            // Accept any non-empty category — no whitelist
             conversation.setCategory(selectedCategory);
+            conversation.setTitle(selectedCategory); // keep sidebar title in sync
             conversationRepository.save(conversation);
 
             messagingTemplate.convertAndSend(
@@ -101,6 +99,7 @@ public class ChatController {
             return;
         }
 
+        // ── Normal chat message flow ────────────────────────────────────────
         chatMessage.setSenderId(userId);
         chatMessage.setType("USER");
 

@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -24,37 +23,26 @@ public class ConversationController {
 
     @PostMapping
     public Conversation createConversation() {
-
         Long userId = authUtil.getCurrentUserId();
-
         return conversationService.createConversation(userId);
     }
 
     @GetMapping
     public List<Conversation> getUserConversations() {
-
         Long userId = authUtil.getCurrentUserId();
-
         return conversationService.getUserConversations(userId);
     }
 
     @GetMapping("/{id}/messages")
     public List<Message> getMessages(@PathVariable Long id) {
-
         Long userId = authUtil.getCurrentUserId();
-
-        // OPTIONAL: move this validation into service later
         return messageService.getMessages(id);
     }
 
-    // ✅ ADD DELETE API HERE
     @DeleteMapping("/{id}")
     public String deleteConversation(@PathVariable Long id) {
-
         Long userId = authUtil.getCurrentUserId();
-
         conversationService.deleteConversation(id, userId);
-
         return "Conversation deleted successfully";
     }
 
@@ -65,5 +53,16 @@ public class ConversationController {
     ) {
         conversationService.setCategory(id, category);
         return ResponseEntity.ok("Category set to " + category);
+    }
+
+    /**
+     * Returns the list of available chat categories.
+     * Frontend fetches this dynamically so categories aren't hardcoded.
+     * Add, remove, or rename entries here to update the UI instantly.
+     */
+    @GetMapping("/categories")
+    public ResponseEntity<List<String>> getCategories() {
+        List<String> categories = conversationService.getAvailableCategories();
+        return ResponseEntity.ok(categories);
     }
 }
